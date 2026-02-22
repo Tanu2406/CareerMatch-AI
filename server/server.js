@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
@@ -16,18 +17,36 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Middleware
+// Security Middleware
+app.use(helmet());
+
+// CORS Configuration - Allow both development and production
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.CLIENT_URL 
-    : 'http://localhost:5173',
-  credentials: true
+  origin: [
+    'http://localhost:5173',      // Development frontend
+    'https://careermatch-ai-1.onrender.com'  // Production frontend
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Body Parser with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static folder for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Root health check route
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'API running',
+    service: 'CareerMatch AI Backend',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -58,14 +77,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
+// 404 handler - catch all unknown routes
+app.use('*', (req, res) => {
   console.warn(`[404] Not Found: ${req.method} ${req.path}`);
   res.status(404).json({ 
-    success: false, 
+    success: false,
     message: 'Route not found',
     path: req.path,
-    method: req.method
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
