@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text-primary;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white px-6 py-3 rounded-lg font-medium cursor-pointer
+           hover:bg-primary-hover hover:shadow-md
+           active:scale-[0.98]
+           transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary border-2 border-primary px-6 py-3 rounded-lg font-medium cursor-pointer
+           hover:bg-primary-light hover:shadow-md
+           active:scale-[0.98]
+           transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  }
+
+  .btn-success {
+    @apply bg-success text-white px-6 py-3 rounded-lg font-medium cursor-pointer
+           hover:bg-emerald-600 hover:shadow-md
+           active:scale-[0.98]
+           transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2;
+  }
+
+  .card {
+    @apply bg-card rounded-2xl shadow-card p-6 border border-border
+           relative overflow-hidden;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-border bg-white
+           focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+           placeholder:text-text-secondary transition-all duration-200;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-text-primary mb-2;
+  }
+}
+
+@layer utilities {
+  .animate-count {
+    animation: countUp 1s ease-out;
+  }
+
+  @keyframes countUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-text-secondary;
+}
