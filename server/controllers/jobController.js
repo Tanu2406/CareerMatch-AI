@@ -6,7 +6,7 @@ import jobService from '../utils/jobService.js';
 // @access  Private
 export const searchJobs = async (req, res) => {
   try {
-    const { location, limit = 10, analysisId } = req.query;
+    const { location, limit = 10, analysisId, country = '', remote = 'false' } = req.query;
 
     // Determine which analysis to use: specific ID or latest
     let analysis;
@@ -30,7 +30,8 @@ export const searchJobs = async (req, res) => {
     const userSkills = [
       ...(analysis.resumeSkills || []),
       ...(analysis.matchedSkills || []),
-      ...(analysis.missingSkills || []).slice(0, 3)
+      // include more missing skills to improve job search and suggestions (top 15)
+      ...(analysis.missingSkills || []).slice(0, 15)
     ].filter(Boolean);
 
     if (userSkills.length === 0) {
@@ -41,7 +42,13 @@ export const searchJobs = async (req, res) => {
     }
 
     // Search and score jobs using resume-derived skills
-    const jobs = await jobService.searchAndScoreJobs(userSkills, location || '', parseInt(limit));
+    const jobs = await jobService.searchAndScoreJobs(
+      userSkills,
+      location || '',
+      parseInt(limit),
+      country || '',
+      remote === 'true' || remote === true
+    );
 
     // Get provider info for transparency
     const providerInfo = jobService.getProviderInfo();
