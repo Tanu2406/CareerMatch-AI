@@ -16,7 +16,8 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const response = await api.get('/auth/me');
+        const url = `${import.meta.env.VITE_API_URL}/auth/me`;
+        const response = await api.get(url);
         setUser(response.data.data.user);
         setIsAuthenticated(true);
       } catch (error) {
@@ -29,7 +30,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const response = await api.post('/auth/login', { email, password });
+    const url = `${import.meta.env.VITE_API_URL}/auth/login`;
+    const response = await api.post(url, { email, password });
     const { token, user } = response.data.data;
     localStorage.setItem('token', token);
     setUser(user);
@@ -38,7 +40,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
-    const response = await api.post('/auth/register', { name, email, password });
+    const url = `${import.meta.env.VITE_API_URL}/auth/register`;
+    const response = await api.post(url, { name, email, password });
     return response.data;
   };
 

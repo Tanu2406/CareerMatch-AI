@@ -22,6 +22,12 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
+    // Normalize URL to avoid duplicated '/api' when baseURL already ends with '/api'
+    const base = api.defaults.baseURL || '';
+    if (base.endsWith('/api') && config.url && config.url.startsWith('/api/')) {
+      config.url = config.url.replace(/^\/api/, '');
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
