@@ -7,6 +7,7 @@ import PDFDocument from 'pdfkit';
 import { extractTextFromFile } from '../utils/pdfParser.js';
 import { calculateMatchScore, generateKeywordSuggestions, generateBasicTips, extractSkills } from '../utils/skillMatcher.js';
 import { analyzeWithGemini } from '../utils/geminiService.js';
+import { extractCleanSkills } from '../utils/skillCleaner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -126,6 +127,9 @@ export const analyzeResume = async (req, res) => {
     // Calculate match score using local algorithm
     const matchResult = calculateMatchScore(resumeText, jobDescription);
 
+    // Extract clean skills
+    const cleanSkills = extractCleanSkills(resumeText);
+
     // Try to get AI-powered analysis
     let aiAnalysis = await analyzeWithGemini(resumeText, jobDescription);
 
@@ -146,7 +150,8 @@ export const analyzeResume = async (req, res) => {
           ? aiAnalysis.improvementTips 
           : generateBasicTips(matchResult.matchScore, matchResult.missingSkills),
         atsScore: aiAnalysis.atsScore || matchResult.matchScore,
-        summary: aiAnalysis.summary || ''
+        summary: aiAnalysis.summary || '',
+        cleanSkills
       };
     } else {
       finalResult = {
@@ -156,7 +161,8 @@ export const analyzeResume = async (req, res) => {
         keywordSuggestions: generateKeywordSuggestions(matchResult.missingSkills),
         improvementTips: generateBasicTips(matchResult.matchScore, matchResult.missingSkills),
         atsScore: matchResult.matchScore,
-        summary: `Your resume matches ${matchResult.matchScore}% of the job requirements.`
+        summary: `Your resume matches ${matchResult.matchScore}% of the job requirements.`,
+        cleanSkills
       };
     }
 
@@ -171,6 +177,7 @@ export const analyzeResume = async (req, res) => {
       matchedSkills: finalResult.matchedSkills,
       missingSkills: finalResult.missingSkills,
       resumeSkills,
+      cleanSkills,
       breakdown: finalResult.breakdown || null,
       overallScore: finalResult.overallScore || finalResult.matchScore,
       keywordSuggestions: finalResult.keywordSuggestions,
@@ -190,6 +197,42 @@ export const analyzeResume = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error analyzing resume',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Extract clean skills from resume
+// @route   GET /api/resume/extract-skills
+// @access  Private
+export const extractCleanSkillsEndpoint = async (req, res) => {
+  try {
+    const userId = req.user.id.toString();
+
+    // Get cached resume
+    const cachedResume = userResumeCache.get(userId);
+    
+    if (!cachedResume) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a resume first'
+      });
+    }
+
+    const { text: resumeText } = cachedResume;
+
+    // Extract clean skills
+    const cleanSkills = extractCleanSkills(resumeText);
+
+    res.json({
+      success: true,
+      data: cleanSkills
+    });
+  } catch (error) {
+    console.error('Extract clean skills error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error extracting skills',
       error: error.message
     });
   }

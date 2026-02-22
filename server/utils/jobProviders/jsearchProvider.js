@@ -19,28 +19,15 @@ class JSearchProvider extends BaseJobProvider {
     return !!this.apiKey;
   }
 
-  async search({ keywords, location = '', country = '', remote = false, limit = 10, page = 1 }) {
+  async search({ keywords, location = '', limit = 10, page = 1 }) {
     if (!this.isConfigured()) {
       console.log('JSearch API key not configured');
       return [];
     }
 
     try {
-      // Build a flexible query that supports location, country and remote
-      let locationPart = '';
-      // If remote requested, bias query toward remote jobs
-      if (remote === 'true' || remote === true) {
-        locationPart = 'remote';
-      } else if (location) {
-        locationPart = location;
-      } else if (country) {
-        // Accept country codes (IN, US, GB, CA) or full country names
-        const countryMap = { IN: 'India', US: 'United States', GB: 'United Kingdom', CA: 'Canada' };
-        const c = (country || '').toUpperCase();
-        locationPart = countryMap[c] || country || '';
-      }
-
-      const query = locationPart ? `${keywords} in ${locationPart}` : keywords;
+      // Build query with location if provided
+      const query = location ? `${keywords} in ${location}` : keywords;
 
       const response = await axios.get(`${this.baseUrl}/search`, {
         params: {

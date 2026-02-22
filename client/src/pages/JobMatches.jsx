@@ -15,8 +15,7 @@ const JobMatches = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchedSkills, setSearchedSkills] = useState([]);
-  const [country, setCountry] = useState('IN');
-  const [remoteOnly, setRemoteOnly] = useState(false);
+  const [cleanSkills, setCleanSkills] = useState([]);
 
   useEffect(() => {
     // If an analysisId query param is present, pass it to the API
@@ -31,8 +30,6 @@ const JobMatches = () => {
     try {
       const params = new URLSearchParams();
       if (analysisId) params.set('analysisId', analysisId);
-      if (country) params.set('country', country);
-      if (remoteOnly) params.set('remote', 'true');
       const url = `/jobs/search?${params.toString()}`;
       const response = await api.get(url);
       setJobs(response.data.data.jobs || []);
@@ -45,17 +42,6 @@ const JobMatches = () => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCountryChange = (e) => {
-    const val = e.target.value;
-    if (val === 'REMOTE') {
-      setRemoteOnly(true);
-      setCountry('');
-    } else {
-      setRemoteOnly(false);
-      setCountry(val);
     }
   };
 
@@ -85,23 +71,14 @@ const JobMatches = () => {
           <h1 className="text-2xl font-bold text-text-primary">Job Matches</h1>
           <p className="text-text-secondary">Jobs matched to your resume skills and experience.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select value={country || (remoteOnly ? 'REMOTE' : '')} onChange={handleCountryChange} className="input">
-            <option value="IN">India</option>
-            <option value="US">USA</option>
-            <option value="GB">UK</option>
-            <option value="CA">Canada</option>
-            <option value="REMOTE">Remote</option>
-          </select>
-          <button 
-            onClick={() => fetchJobs()}
-            disabled={loading}
-            className="btn-secondary flex items-center gap-2 w-fit"
-          >
-            <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+        <button 
+          onClick={() => fetchJobs()}
+          disabled={loading}
+          className="btn-secondary flex items-center gap-2 w-fit"
+        >
+          <HiOutlineRefresh className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Search Skills */}

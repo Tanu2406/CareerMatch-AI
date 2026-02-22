@@ -25,14 +25,14 @@ class JobService {
    * @param {number} params.limit - Maximum results
    * @returns {Promise<Array>} - Array of job objects
    */
-  async searchJobs({ keywords, location = '', country = '', remote = false, limit = 10 }) {
+  async searchJobs({ keywords, location = '', limit = 10 }) {
     const provider = this.getProvider();
     
     console.log(`Searching jobs with provider: ${provider.name}`);
     console.log(`Keywords: ${keywords}`);
     
     try {
-      const jobs = await provider.search({ keywords, location, country, remote, limit });
+      const jobs = await provider.search({ keywords, location, limit });
       return jobs;
     } catch (error) {
       console.error('Job search error:', error);
@@ -96,15 +96,14 @@ class JobService {
    * Search and score jobs based on user's resume analysis
    * @param {Array} userSkills - Skills extracted from user's resume
    * @param {string} location - Optional location filter
-   * @param {number} limit - Maximum results
    * @returns {Promise<Array>} - Scored and sorted jobs
    */
-  async searchAndScoreJobs(userSkills, location = '', limit = 10, country = '', remote = false) {
+  async searchAndScoreJobs(userSkills, location = '') {
     // Build search keywords from user skills
     const keywords = userSkills.slice(0, 5).join(' ');
     
     // Search for jobs
-    const jobs = await this.searchJobs({ keywords, location, country, remote, limit: limit + 5 });
+    const jobs = await this.searchJobs({ keywords, location, limit: 15 });
     
     // Calculate match scores
     const scoredJobs = this.calculateMatchScores(jobs, userSkills);
@@ -112,8 +111,8 @@ class JobService {
     // Sort by match score (highest first)
     scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
     
-    // Return requested limit
-    return scoredJobs.slice(0, limit);
+    // Return top 10
+    return scoredJobs.slice(0, 10);
   }
 
   /**

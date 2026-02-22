@@ -15,7 +15,7 @@ class MockProvider extends BaseJobProvider {
     return true;
   }
 
-  async search({ keywords, location = '', country = '', remote = false, limit = 10 }) {
+  async search({ keywords, location = '', limit = 10 }) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
