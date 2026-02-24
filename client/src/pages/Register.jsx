@@ -45,7 +45,12 @@ const Register = () => {
       toast.success('Account created successfully. Please login.');
       navigate('/login');
     } catch (error) {
-      // Error is handled by axios interceptor
+      const status = error.response?.status;
+      if (status === 409) {
+        toast.error('Email already registered. Please login instead.');
+      } else {
+        // other errors: axios interceptor for auth routes will handle or you can show generic message
+      }
     } finally {
       setLoading(false);
     }

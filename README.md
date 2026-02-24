@@ -137,7 +137,7 @@ CareerMatch AI/
 ### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register` | Register new user |
+| POST | `/api/auth/register` | Register new user (409 if email already registered) |
 | POST | `/api/auth/login` | Login user |
 | GET | `/api/auth/me` | Get current user |
 

@@ -16,7 +16,6 @@ const JobMatches = () => {
   const [error, setError] = useState(null);
   const [searchedSkills, setSearchedSkills] = useState([]);
   const [cleanSkills, setCleanSkills] = useState([]);
-  const [country, setCountry] = useState('IN');
   const [remoteOnly, setRemoteOnly] = useState(false);
 
   useEffect(() => {
@@ -32,7 +31,6 @@ const JobMatches = () => {
     try {
       const params = new URLSearchParams();
       if (analysisId) params.set('analysisId', analysisId);
-      if (country) params.set('country', country);
       if (remoteOnly) params.set('remote', 'true');
       const url = `/jobs/search?${params.toString()}`;
       const response = await api.get(url);
@@ -53,16 +51,6 @@ const JobMatches = () => {
     }
   };
 
-  const handleCountryChange = (e) => {
-    const val = e.target.value;
-    if (val === 'REMOTE') {
-      setRemoteOnly(true);
-      setCountry('');
-    } else {
-      setRemoteOnly(false);
-      setCountry(val);
-    }
-  };
 
   // helper functions --------------------------------------------------------
   const GENERIC_SKILL_WORDS = [
@@ -149,13 +137,6 @@ const JobMatches = () => {
           <p className="text-text-secondary">Jobs matched to your resume skills and experience.</p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={country || (remoteOnly ? 'REMOTE' : '')} onChange={handleCountryChange} className="input">
-            <option value="IN">India</option>
-            <option value="US">USA</option>
-            <option value="GB">UK</option>
-            <option value="CA">Canada</option>
-            <option value="REMOTE">Remote</option>
-          </select>
           <button 
             onClick={() => fetchJobs()}
             disabled={loading}

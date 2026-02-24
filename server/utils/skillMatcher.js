@@ -189,9 +189,18 @@ export const calculateMatchScore = (resumeText, jobDescription) => {
   if (finalScore > 100) finalScore = 100;
   const overall = Math.round(finalScore);
 
-  const matchedSkills = [...new Set([...(techMatches || []), ...(softMatches || [])])];
+  // We only want clean technical matches for output; soft skills are omitted
+  let matchedSkills = [...new Set([...(techMatches || [])])];
   const requiredAll = [...new Set([...(requiredTechnical || []), ...(requiredSoft || [])])];
   const missingSkills = requiredAll.filter(r => !matchedSkills.includes(r));
+
+  // sort matchedSkills according to TECH_SKILLS order and limit to 12
+  matchedSkills.sort((a, b) => {
+    const idxA = TECH_SKILLS.findIndex(x => normalize(x) === a);
+    const idxB = TECH_SKILLS.findIndex(x => normalize(x) === b);
+    return idxA - idxB;
+  });
+  if (matchedSkills.length > 12) matchedSkills = matchedSkills.slice(0, 12);
 
   // fallback: if job listed no clear skills, extract keywords as missing suggestions
   if (requiredAll.length === 0) {
@@ -215,6 +224,74 @@ export const calculateMatchScore = (resumeText, jobDescription) => {
     requiredExperience,
     candidateExperience
   };
+};
+
+
+// helper: map normalized skill to display-friendly value
+const DISPLAY_MAP = {
+  'javascript': 'JavaScript',
+  'typescript': 'TypeScript',
+  'react': 'React.js',
+  'reactjs': 'React.js',
+  'react.js': 'React.js',
+  'node': 'Node.js',
+  'nodejs': 'Node.js',
+  'node.js': 'Node.js',
+  'vue': 'Vue.js',
+  'vuejs': 'Vue.js',
+  'angular': 'Angular',
+  'angularjs': 'AngularJS',
+  'html': 'HTML',
+  'css': 'CSS',
+  'aws': 'AWS',
+  'gcp': 'GCP',
+  'sql': 'SQL',
+  'mongodb': 'MongoDB',
+  'postgresql': 'PostgreSQL',
+  'mysql': 'MySQL',
+  'docker': 'Docker',
+  'kubernetes': 'Kubernetes'
+};
+
+/**
+ * Return formatted display name for a normalized skill string.
+ */
+const formatSkill = (skill) => {
+  if (!skill) return skill;
+  const lower = skill.toLowerCase();
+  if (DISPLAY_MAP[lower]) return DISPLAY_MAP[lower];
+  // fallback: capitalize each word
+  return skill
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
+/**
+ * Extract intersection of skills between resume and job description
+ * following the rules specified by the ATS logic. Returns an object
+ * with matchedSkills array limited to 12 and ordered by importance.
+ */
+export const getMatchedSkills = (resumeText, jobDescription) => {
+  const resumeSkills = extractSkills(resumeText || '');
+  const jobSkills = extractSkills(jobDescription || '');
+
+  const jobSet = new Set(jobSkills.map(s => normalize(s)));
+  // keep order from TECH_SKILLS priority
+  let shared = resumeSkills
+    .map(s => normalize(s))
+    .filter(s => jobSet.has(s));
+
+  shared.sort((a, b) => {
+    const idxA = TECH_SKILLS.findIndex(x => normalize(x) === a);
+    const idxB = TECH_SKILLS.findIndex(x => normalize(x) === b);
+    return idxA - idxB;
+  });
+
+  if (shared.length > 12) shared = shared.slice(0, 12);
+  shared = shared.map(formatSkill);
+
+  return { matchedSkills: shared };
 };
 
 export const generateKeywordSuggestions = (missingSkills = []) => {
@@ -271,6 +348,7 @@ export default {
   extractSkills,
   extractJobKeywords,
   calculateMatchScore,
+  getMatchedSkills,
   generateKeywordSuggestions,
   generateBasicTips
 };
