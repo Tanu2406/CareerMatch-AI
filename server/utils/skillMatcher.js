@@ -35,6 +35,49 @@ const isMeaningfulSkill = (skill) => {
   return true;
 };
 
+// post-process skill lists applying strict rules per spec
+export const cleanSkillsArray = (skills) => {
+  if (!Array.isArray(skills)) return [];
+  const verbs = [
+    'understanding', 'working', 'developed', 'collaborated',
+    'experience', 'knowledge', 'ability'
+  ];
+  const seen = new Set();
+  const clean = [];
+
+  for (let raw of skills) {
+    if (!raw || typeof raw !== 'string') continue;
+    let item = raw.trim();
+    if (!item) continue;
+
+    // word and space limits
+    const words = item.split(/\s+/);
+    if (words.length > 3) continue;
+    if ((item.match(/\s/g) || []).length > 2) continue;
+
+    // verbs and forbidden terms
+    const low = item.toLowerCase();
+    if (verbs.some(v => low.includes(v))) continue;
+
+    if (item.length > 30) continue;
+
+    // drop lowercase sentence fragments
+    if (item === item.toLowerCase() && words.length > 1) continue;
+
+    // allow only if capitalized or known tech skill
+    const norm = normalize(item);
+    const known = TECH_SKILLS.map(x => normalize(x));
+    if (!(item[0] === item[0].toUpperCase() || known.includes(norm))) continue;
+
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+    clean.push(item);
+    if (clean.length >= 12) break;
+  }
+
+  return clean;
+};
+
 // Primary extraction function
 export const extractSkills = (text) => {
   const found = [];
@@ -112,117 +155,48 @@ export const extractJobKeywords = (jobDescription) => {
 };
 
 export const calculateMatchScore = (resumeText, jobDescription) => {
-  const resumeSkills = extractSkills(resumeText || '');
-  const jobSkills = extractSkills(jobDescription || '');
+  // extract and clean skills lists
+  let resumeSkills = cleanSkillsArray(extractSkills(resumeText || ''));
+  let jobSkills = cleanSkillsArray(extractSkills(jobDescription || ''));
 
+  // normalize sets for quick lookup
   const resumeSet = new Set(resumeSkills.map(s => normalize(s)));
   const jobSet = new Set(jobSkills.map(s => normalize(s)));
 
-  const SOFT_SKILLS = new Set(['agile','scrum','kanban','leadership','communication','teamwork','problem solving','analytical','project management','collaboration','adaptability']);
+  // matched and missing using simple filter logic
+  let matchedSkills = resumeSkills.filter(s => jobSet.has(normalize(s)));
+  let missingSkills = jobSkills.filter(s => !resumeSet.has(normalize(s)));
 
-  const requiredTechnical = [];
-  const requiredSoft = [];
-  for (const s of jobSet) {
-    if (SOFT_SKILLS.has(s)) requiredSoft.push(s); else requiredTechnical.push(s);
-  }
-
-  // experience parsing
-  let requiredExperience = 0;
-  try {
-    const m = (jobDescription || '').match(/(\d+)\+?\s*years?/i);
-    if (m && m[1]) requiredExperience = parseInt(m[1], 10);
-  } catch (e) { requiredExperience = 0; }
-
-  let candidateExperience = 0;
-  try {
-    const m2 = (resumeText || '').match(/(\d+)\+?\s*years?/i);
-    if (m2 && m2[1]) candidateExperience = parseInt(m2[1], 10);
-  } catch (e) { candidateExperience = 0; }
-
-  // detect education/certs for bonus
-  const resumeLower = normalize(resumeText || '');
-  const degreePatterns = ['bachelor','master','phd','doctorate','bs','ms'];
-  const certPatterns = ['certificate','certified','certification','aws certified','google certified'];
-  let bonusFound = false;
-  for (const d of degreePatterns) if (resumeLower.includes(d)) { bonusFound = true; break; }
-  if (!bonusFound) for (const c of certPatterns) if (resumeLower.includes(c)) { bonusFound = true; break; }
-
-  // tolerant matcher using sets
-  const tolerantMatch = (requiredSkill, candidateSet) => {
-    if (!requiredSkill) return false;
-    const req = normalize(requiredSkill);
-    if (candidateSet.has(req)) return true;
-    for (const cs of candidateSet) {
-      if (!cs) continue;
-      if (cs === req) return true;
-      if (cs.includes(req) || req.includes(cs)) return true;
-      try {
-        const r = new RegExp(`\\b${escapeRegex(req)}\\b`, 'i');
-        if (r.test(cs)) return true;
-      } catch (e) { /* ignore */ }
-    }
-    return false;
-  };
-
-  // Technical score (50%)
-  const techTotal = requiredTechnical.length;
-  let techMatches = [];
-  if (techTotal > 0) techMatches = requiredTechnical.filter(req => tolerantMatch(req, resumeSet));
-  const technicalScore = techTotal === 0 ? 0 : (techMatches.length / techTotal) * 50;
-
-  // Soft score (20%)
-  const softTotal = requiredSoft.length;
-  let softMatches = [];
-  if (softTotal > 0) softMatches = requiredSoft.filter(req => tolerantMatch(req, resumeSet));
-  const softScore = softTotal === 0 ? 0 : (softMatches.length / softTotal) * 20;
-
-  // Experience score (25%)
-  let experienceScore = 0;
-  if (requiredExperience <= 0) experienceScore = 0;
-  else if (candidateExperience >= requiredExperience) experienceScore = 25;
-  else experienceScore = (candidateExperience / requiredExperience) * 25;
-  if (experienceScore > 25) experienceScore = 25;
-
-  const bonusScore = bonusFound ? 5 : 0;
-
-  let finalScore = technicalScore + softScore + experienceScore + bonusScore;
-  if (finalScore > 100) finalScore = 100;
-  const overall = Math.round(finalScore);
-
-  // We only want clean technical matches for output; soft skills are omitted
-  let matchedSkills = [...new Set([...(techMatches || [])])];
-  const requiredAll = [...new Set([...(requiredTechnical || []), ...(requiredSoft || [])])];
-  const missingSkills = requiredAll.filter(r => !matchedSkills.includes(r));
-
-  // sort matchedSkills according to TECH_SKILLS order and limit to 12
+  // ensure order and limit to 12
   matchedSkills.sort((a, b) => {
-    const idxA = TECH_SKILLS.findIndex(x => normalize(x) === a);
-    const idxB = TECH_SKILLS.findIndex(x => normalize(x) === b);
+    const idxA = TECH_SKILLS.findIndex(x => normalize(x) === normalize(a));
+    const idxB = TECH_SKILLS.findIndex(x => normalize(x) === normalize(b));
     return idxA - idxB;
   });
   if (matchedSkills.length > 12) matchedSkills = matchedSkills.slice(0, 12);
 
-  // fallback: if job listed no clear skills, extract keywords as missing suggestions
-  if (requiredAll.length === 0) {
-    const tokens = extractJobKeywords(jobDescription || '');
-    for (const t of tokens) if (!resumeSet.has(t) && !missingSkills.includes(t)) missingSkills.push(t);
-  }
+  // format for display
+  matchedSkills = matchedSkills.map(formatSkill);
+  missingSkills = missingSkills.map(formatSkill);
+
+  // score percentage based purely on jobSkills length
+  const matchScore = jobSkills.length === 0 ? 0 : Math.round((matchedSkills.length / jobSkills.length) * 100);
 
   return {
-    matchScore: overall,
-    overallScore: overall,
+    matchScore,
+    overallScore: matchScore,
     breakdown: {
-      technical: Math.round(technicalScore * 100) / 100,
-      soft: Math.round(softScore * 100) / 100,
-      experience: Math.round(experienceScore * 100) / 100,
-      bonus: Math.round(bonusScore * 100) / 100
+      technical: matchScore,
+      soft: 0,
+      experience: 0,
+      bonus: 0
     },
     matchedSkills: [...new Set(matchedSkills)],
     missingSkills: [...new Set(missingSkills)],
-    totalKeywords: requiredAll.length,
+    totalKeywords: jobSkills.length,
     resumeSkillsCount: resumeSkills.length,
-    requiredExperience,
-    candidateExperience
+    requiredExperience: 0,
+    candidateExperience: 0
   };
 };
 
@@ -256,7 +230,7 @@ const DISPLAY_MAP = {
 /**
  * Return formatted display name for a normalized skill string.
  */
-const formatSkill = (skill) => {
+export const formatSkill = (skill) => {
   if (!skill) return skill;
   const lower = skill.toLowerCase();
   if (DISPLAY_MAP[lower]) return DISPLAY_MAP[lower];

@@ -139,6 +139,8 @@ CareerMatch AI/
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register new user (409 if email already registered) |
 | POST | `/api/auth/login` | Login user |
+| POST | `/api/auth/forgot-password` | Request password reset (email if account exists) |
+| POST | `/api/auth/reset-password` | Reset password using token |
 | GET | `/api/auth/me` | Get current user |
 
 ### Resume

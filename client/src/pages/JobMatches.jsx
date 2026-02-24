@@ -56,41 +56,50 @@ const JobMatches = () => {
   const GENERIC_SKILL_WORDS = [
     'project', 'projects', 'worked', 'work', 'experience', 'summary',
     'education', 'skill', 'skills', 'year', 'years', 'date', 'month',
-    'microsoft', 'apple', 'google' // some overly generic terms if needed
+    'microsoft', 'apple', 'google'
+  ];
+  const FILTER_VERBS = [
+    'understanding', 'working', 'developed', 'collaborated',
+    'experience', 'knowledge', 'ability'
   ];
 
-  const isUsefulSkill = (skill) => {
-    if (!skill || typeof skill !== 'string') return false;
-    const lower = skill.toLowerCase().trim();
-    // drop anything containing digits or common date patterns
-    if (/\d/.test(lower)) return false;
-    // drop generic words
-    for (const w of GENERIC_SKILL_WORDS) {
-      if (lower.includes(w)) return false;
-    }
-    // short stray words are probably noise
-    if (lower.length < 2) return false;
-    return true;
-  };
-
   const cleanSkillsList = (skills) => {
-    return skills
-      .map(s => s.trim())
-      .filter(isUsefulSkill);
+    if (!Array.isArray(skills)) return [];
+    const seen = new Set();
+    const clean = [];
+    for (let raw of skills) {
+      if (!raw || typeof raw !== 'string') continue;
+      let item = raw.trim();
+      if (!item) continue;
+      const words = item.split(/\s+/);
+      if (words.length > 3) continue;
+      if ((item.match(/\s/g) || []).length > 2) continue;
+      const low = item.toLowerCase();
+      if (FILTER_VERBS.some(v => low.includes(v))) continue;
+      if (item.length > 30) continue;
+      if (item === item.toLowerCase() && words.length > 1) continue;
+      // only keep capitalized or clearly known tech skill
+      const norm = low;
+      const known = [
+        'javascript','typescript','python','java','c++','c#','ruby','go','rust','php',
+        'react','react.js','vue','angular','node','express','django','flask',
+        'mongodb','postgresql','mysql','redis','aws','azure','gcp','docker','kubernetes',
+        'git','api','graphql','rest'
+      ];
+      if (!(item[0] === item[0].toUpperCase() || known.includes(norm))) continue;
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      clean.push(item);
+      if (clean.length >= 12) break;
+    }
+    return clean;
   };
 
   const computeMatchedSkillsForJob = (userSkills, job) => {
     if (!userSkills || userSkills.length === 0 || !job) return [];
-    const cleaned = cleanSkillsList(userSkills);
-    const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
-    const jobSkills = (job.skills || []).map(s => s.toLowerCase());
-
-    const matched = cleaned.filter(skill => {
-      const lower = skill.toLowerCase();
-      const inText = jobText.includes(lower);
-      const inJobSkills = jobSkills.some(js => js.includes(lower) || lower.includes(js));
-      return inText || inJobSkills;
-    });
+    const cleanedUser = cleanSkillsList(userSkills).map(s => s.toLowerCase());
+    const jobSkills = cleanSkillsList(job.skills || []).map(s => s.toLowerCase());
+    const matched = cleanedUser.filter(us => jobSkills.includes(us));
     return matched.slice(0, 12);
   };
 
@@ -98,16 +107,16 @@ const JobMatches = () => {
     if (!userSkills || userSkills.length === 0 || !jobs || jobs.length === 0) {
       return [];
     }
-    const cleaned = cleanSkillsList(userSkills);
-    const filtered = cleaned.filter(skill => {
-      const lower = skill.toLowerCase();
-      return jobs.some(job => {
-        const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
-        const jobSkills = (job.skills || []).map(s => s.toLowerCase());
-        return jobText.includes(lower) || jobSkills.some(js => js.includes(lower) || lower.includes(js));
-      });
-    });
-    return filtered.slice(0, 12);
+    const cleanedUser = cleanSkillsList(userSkills).map(s => s.toLowerCase());
+    const allJobSkills = jobs.reduce((arr, job) => {
+      if (job.skills && job.skills.length) {
+        arr.push(...cleanSkillsList(job.skills).map(s => s.toLowerCase()));
+      }
+      return arr;
+    }, []);
+    const uniqueJobSkills = [...new Set(allJobSkills)];
+    const matched = cleanedUser.filter(us => uniqueJobSkills.includes(us));
+    return matched.slice(0, 12);
   };
 
   const SkeletonCard = () => (
@@ -267,7 +276,10 @@ const JobMatches = () => {
             {/* Jobs Grid */}
             <div className="grid md:grid-cols-2 gap-6">
               {jobs.map((job, index) => {
-                const matchedSkills = computeMatchedSkillsForJob(searchedSkills, job);
+                // prefer matchedSkills computed by backend; fallback to local compute if absent
+                const matchedSkills = job.matchedSkills && job.matchedSkills.length > 0
+                  ? job.matchedSkills
+                  : computeMatchedSkillsForJob(searchedSkills, job);
                 return (
                   <JobCard
                     key={`${job.title}-${job.company}-${index}`}

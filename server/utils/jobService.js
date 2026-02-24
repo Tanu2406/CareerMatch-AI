@@ -1,4 +1,5 @@
 import jobProviderFactory from './jobProviders/index.js';
+import { formatSkill } from './skillMatcher.js';
 
 /**
  * Job Search Service
@@ -56,38 +57,35 @@ class JobService {
    */
   calculateMatchScores(jobs, userSkills) {
     if (!userSkills || userSkills.length === 0) {
-      return jobs.map(job => ({ ...job, matchScore: 0 }));
+      return jobs.map(job => ({ ...job, matchScore: 0, matchedSkills: [] }));
     }
 
-    const normalizedUserSkills = userSkills.map(s => s.toLowerCase().trim());
+    // helper to clean and normalize skills similarly to resume analysis
+    const cleanAndNorm = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return [...new Set(arr.map(s => (s || '').toLowerCase().trim()).filter(Boolean))];
+    };
+
+    const normalizedUserSkills = cleanAndNorm(userSkills);
 
     return jobs.map(job => {
-      const jobSkills = job.skills || [];
-      const normalizedJobSkills = jobSkills.map(s => s.toLowerCase().trim());
+      const jobSkills = cleanAndNorm(job.skills || []);
 
-      // Also check job title and description for skills
-      const jobText = `${job.title} ${job.description || ''}`.toLowerCase();
+      // compute matched using intersection
+      const matched = normalizedUserSkills.filter(us => jobSkills.includes(us));
 
-      let matchCount = 0;
-      for (const userSkill of normalizedUserSkills) {
-        // Check if skill is in job's skills array
-        const inSkills = normalizedJobSkills.some(
-          js => js.includes(userSkill) || userSkill.includes(js)
-        );
-        
-        // Check if skill is mentioned in job text
-        const inText = jobText.includes(userSkill);
-        
-        if (inSkills || inText) {
-          matchCount++;
-        }
+      let matchScore = 0;
+      if (jobSkills.length > 0) {
+        matchScore = Math.round((matched.length / jobSkills.length) * 100);
       }
 
-      const matchScore = Math.round((matchCount / normalizedUserSkills.length) * 100);
+      // format matched skill names for display
+      const formatted = matched.map(formatSkill);
 
       return {
         ...job,
-        matchScore: Math.min(matchScore, 100)
+        matchScore: Math.min(matchScore, 100),
+        matchedSkills: formatted
       };
     });
   }
@@ -107,10 +105,21 @@ class JobService {
     const jobs = await this.searchJobs({ keywords, location, country, remote, limit: limit + 5 });
     
     // Calculate match scores
-    const scoredJobs = this.calculateMatchScores(jobs, userSkills);
+    let scoredJobs = this.calculateMatchScores(jobs, userSkills);
     
-    // Sort by match score (highest first)
-    scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
+    // If no country filter provided, prefer India-based jobs by moving them up
+    if (!country) {
+      scoredJobs.sort((a, b) => {
+        const aIndia = a.location && a.location.toLowerCase().includes('india');
+        const bIndia = b.location && b.location.toLowerCase().includes('india');
+        if (aIndia && !bIndia) return -1;
+        if (bIndia && !aIndia) return 1;
+        return b.matchScore - a.matchScore;
+      });
+    } else {
+      // Sort by match score (highest first)
+      scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
+    }
     
     // Return requested limit
     return scoredJobs.slice(0, limit);

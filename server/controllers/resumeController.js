@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import Analysis from '../models/Analysis.js';
 import PDFDocument from 'pdfkit';
 import { extractTextFromFile } from '../utils/pdfParser.js';
-import { calculateMatchScore, generateKeywordSuggestions, generateBasicTips, extractSkills } from '../utils/skillMatcher.js';
+import { calculateMatchScore, generateKeywordSuggestions, generateBasicTips, extractSkills, cleanSkillsArray } from '../utils/skillMatcher.js';
 import { analyzeWithGemini } from '../utils/geminiService.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -129,16 +129,13 @@ export const analyzeResume = async (req, res) => {
     // Try to get AI-powered analysis
     let aiAnalysis = await analyzeWithGemini(resumeText, jobDescription);
 
-    // Combine local and AI analysis
+    // Combine local and AI analysis but always use our cleaned matched/missing lists
     let finalResult;
-    
     if (aiAnalysis) {
       finalResult = {
         matchScore: matchResult.matchScore,
         matchedSkills: matchResult.matchedSkills,
-        missingSkills: aiAnalysis.missingSkills.length > 0 
-          ? aiAnalysis.missingSkills 
-          : matchResult.missingSkills,
+        missingSkills: matchResult.missingSkills, // ignore AI for missing
         keywordSuggestions: aiAnalysis.keywordSuggestions.length > 0 
           ? aiAnalysis.keywordSuggestions 
           : generateKeywordSuggestions(matchResult.missingSkills),
@@ -161,7 +158,7 @@ export const analyzeResume = async (req, res) => {
     }
 
     // Save analysis to database (include resumeSkills and breakdown when available)
-    const resumeSkills = extractSkills(resumeText);
+    const resumeSkills = cleanSkillsArray(extractSkills(resumeText));
     const analysis = await Analysis.create({
       userId: req.user.id,
       resumeText: resumeText.substring(0, 10000),

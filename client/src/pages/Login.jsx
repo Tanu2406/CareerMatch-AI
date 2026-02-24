@@ -130,11 +130,16 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Register Link */}
+          {/* Register Link & Forgot */}
           <p className="text-center mt-6 text-text-secondary">
             Don't have an account?{' '}
             <Link to="/register" className="text-primary font-medium hover:underline">
               Sign up
+            </Link>
+          </p>
+          <p className="text-center mt-2 text-text-secondary">
+            <Link to="/forgot-password" className="text-primary font-medium hover:underline">
+              Forgot password?
             </Link>
           </p>
         </div>
