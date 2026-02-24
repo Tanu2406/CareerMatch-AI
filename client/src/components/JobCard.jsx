@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { HiOutlineLocationMarker, HiOutlineCurrencyDollar, HiOutlineExternalLink } from 'react-icons/hi';
+import SkillTag from './SkillTag';
 
-const JobCard = ({ job, index = 0 }) => {
+const JobCard = ({ job, index = 0, matchedSkills = [] }) => {
   const { title, company, location, salary, matchScore, applyLink } = job;
 
   const getScoreColor = (score) => {
@@ -54,6 +55,20 @@ const JobCard = ({ job, index = 0 }) => {
           {matchScore < 40 && 'This role may require additional skills. Review the requirements carefully.'}
         </p>
       </div>
+
+      {/* top matching skills for this job */}
+      {matchedSkills && matchedSkills.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-text-primary mb-2">
+            Top Matching Skills for This Job
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {matchedSkills.map((s, i) => (
+              <SkillTag key={`${s}-${i}`} skill={s} index={i} type="matched" />
+            ))}
+          </div>
+        </div>
+      )}
 
       <a
         href={applyLink}

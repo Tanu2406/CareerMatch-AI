@@ -15,6 +15,7 @@ const JobMatches = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchedSkills, setSearchedSkills] = useState([]);
+  const [cleanSkills, setCleanSkills] = useState([]);
   const [country, setCountry] = useState('IN');
   const [remoteOnly, setRemoteOnly] = useState(false);
 
@@ -35,8 +36,12 @@ const JobMatches = () => {
       if (remoteOnly) params.set('remote', 'true');
       const url = `/jobs/search?${params.toString()}`;
       const response = await api.get(url);
-      setJobs(response.data.data.jobs || []);
-      setSearchedSkills(response.data.data.searchedSkills || []);
+      const jobsData = response.data.data.jobs || [];
+      const skillsData = response.data.data.searchedSkills || [];
+      setJobs(jobsData);
+      setSearchedSkills(skillsData);
+      // compute a cleaned list of skills that actually appear in returned jobs
+      setCleanSkills(computeGlobalMatchedSkills(skillsData, jobsData));
     } catch (err) {
       if (err.response?.status === 400) {
         setError('analyze');
@@ -57,6 +62,64 @@ const JobMatches = () => {
       setRemoteOnly(false);
       setCountry(val);
     }
+  };
+
+  // helper functions --------------------------------------------------------
+  const GENERIC_SKILL_WORDS = [
+    'project', 'projects', 'worked', 'work', 'experience', 'summary',
+    'education', 'skill', 'skills', 'year', 'years', 'date', 'month',
+    'microsoft', 'apple', 'google' // some overly generic terms if needed
+  ];
+
+  const isUsefulSkill = (skill) => {
+    if (!skill || typeof skill !== 'string') return false;
+    const lower = skill.toLowerCase().trim();
+    // drop anything containing digits or common date patterns
+    if (/\d/.test(lower)) return false;
+    // drop generic words
+    for (const w of GENERIC_SKILL_WORDS) {
+      if (lower.includes(w)) return false;
+    }
+    // short stray words are probably noise
+    if (lower.length < 2) return false;
+    return true;
+  };
+
+  const cleanSkillsList = (skills) => {
+    return skills
+      .map(s => s.trim())
+      .filter(isUsefulSkill);
+  };
+
+  const computeMatchedSkillsForJob = (userSkills, job) => {
+    if (!userSkills || userSkills.length === 0 || !job) return [];
+    const cleaned = cleanSkillsList(userSkills);
+    const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+    const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+
+    const matched = cleaned.filter(skill => {
+      const lower = skill.toLowerCase();
+      const inText = jobText.includes(lower);
+      const inJobSkills = jobSkills.some(js => js.includes(lower) || lower.includes(js));
+      return inText || inJobSkills;
+    });
+    return matched.slice(0, 12);
+  };
+
+  const computeGlobalMatchedSkills = (userSkills, jobs) => {
+    if (!userSkills || userSkills.length === 0 || !jobs || jobs.length === 0) {
+      return [];
+    }
+    const cleaned = cleanSkillsList(userSkills);
+    const filtered = cleaned.filter(skill => {
+      const lower = skill.toLowerCase();
+      return jobs.some(job => {
+        const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+        const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+        return jobText.includes(lower) || jobSkills.some(js => js.includes(lower) || lower.includes(js));
+      });
+    });
+    return filtered.slice(0, 12);
   };
 
   const SkeletonCard = () => (
@@ -116,7 +179,7 @@ const JobMatches = () => {
             <span className="text-sm font-medium text-text-secondary">Searching based on your skills:</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {searchedSkills.map((skill) => (
+            {(cleanSkills.length > 0 ? cleanSkills : searchedSkills).map((skill) => (
               <span
                 key={skill}
                 className="px-3 py-1 bg-primary-light text-primary rounded-lg text-sm font-medium"
@@ -222,9 +285,17 @@ const JobMatches = () => {
 
             {/* Jobs Grid */}
             <div className="grid md:grid-cols-2 gap-6">
-              {jobs.map((job, index) => (
-                <JobCard key={`${job.title}-${job.company}-${index}`} job={job} index={index} />
-              ))}
+              {jobs.map((job, index) => {
+                const matchedSkills = computeMatchedSkillsForJob(searchedSkills, job);
+                return (
+                  <JobCard
+                    key={`${job.title}-${job.company}-${index}`}
+                    job={job}
+                    index={index}
+                    matchedSkills={matchedSkills}
+                  />
+                );
+              })}
             </div>
           </motion.div>
         )}
