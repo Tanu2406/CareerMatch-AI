@@ -1,8 +1,7 @@
 import express from 'express';
 import { 
   uploadResume, 
-  analyzeResume,
-  extractCleanSkillsEndpoint,
+  analyzeResume, 
   getHistory, 
   getStats,
   getLatestAnalysis,
@@ -19,7 +18,6 @@ router.use(protect);
 
 router.post('/upload', upload.single('resume'), uploadResume);
 router.post('/analyze', analyzeResume);
-router.get('/extract-skills', extractCleanSkillsEndpoint);
 router.get('/history', getHistory);
 router.get('/stats', getStats);
 router.get('/latest', getLatestAnalysis);

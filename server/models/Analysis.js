@@ -40,11 +40,6 @@ const analysisSchema = new mongoose.Schema({
   missingSkills: [{
     type: String
   }],
-  cleanSkills: {
-    skills: [{ type: String }],
-    jobTitles: [{ type: String }],
-    keywords: [{ type: String }]
-  },
   breakdown: {
     technical: { type: Number },
     soft: { type: Number },

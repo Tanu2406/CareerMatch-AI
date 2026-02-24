@@ -6,7 +6,7 @@ import jobService from '../utils/jobService.js';
 // @access  Private
 export const searchJobs = async (req, res) => {
   try {
-    const { location, limit = 10, analysisId } = req.query;
+    const { location, limit = 10, analysisId, country = '', remote = 'false' } = req.query;
 
     // Determine which analysis to use: specific ID or latest
     let analysis;
@@ -26,18 +26,13 @@ export const searchJobs = async (req, res) => {
       });
     }
 
-    // Use clean skills from analysis if available, fall back to matched/missing skills
-    let userSkills = [];
-    
-    if (analysis.cleanSkills && analysis.cleanSkills.keywords) {
-      userSkills = analysis.cleanSkills.keywords;
-    } else {
-      // Fallback: combine matched and missing skills
-      userSkills = [
-        ...(analysis.matchedSkills || []),
-        ...(analysis.missingSkills || []).slice(0, 15)
-      ].filter(Boolean);
-    }
+    // Build user skills: prefer stored resumeSkills if available
+    const userSkills = [
+      ...(analysis.resumeSkills || []),
+      ...(analysis.matchedSkills || []),
+      // include more missing skills to improve job search and suggestions (top 15)
+      ...(analysis.missingSkills || []).slice(0, 15)
+    ].filter(Boolean);
 
     if (userSkills.length === 0) {
       return res.status(400).json({
@@ -46,10 +41,13 @@ export const searchJobs = async (req, res) => {
       });
     }
 
-    // Search and score jobs using clean skills only
+    // Search and score jobs using resume-derived skills
     const jobs = await jobService.searchAndScoreJobs(
       userSkills,
-      location || ''
+      location || '',
+      parseInt(limit),
+      country || '',
+      remote === 'true' || remote === true
     );
 
     // Get provider info for transparency
