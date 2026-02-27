@@ -107,19 +107,9 @@ class JobService {
     // Calculate match scores
     let scoredJobs = this.calculateMatchScores(jobs, userSkills);
     
-    // If no country filter provided, prefer India-based jobs by moving them up
-    if (!country) {
-      scoredJobs.sort((a, b) => {
-        const aIndia = a.location && a.location.toLowerCase().includes('india');
-        const bIndia = b.location && b.location.toLowerCase().includes('india');
-        if (aIndia && !bIndia) return -1;
-        if (bIndia && !aIndia) return 1;
-        return b.matchScore - a.matchScore;
-      });
-    } else {
-      // Sort by match score (highest first)
-      scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
-    }
+    // Always sort by match score (highest first).
+    // When no country is provided we allow global results (no implicit country bias).
+    scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
     
     // Return requested limit
     return scoredJobs.slice(0, limit);

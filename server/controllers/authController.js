@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import User from '../models/User.js';
 
 // Generate JWT token
@@ -144,8 +145,37 @@ export const forgotPassword = async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.CLIENT_URL || ''}/reset-password?token=${resetToken}`;
-    // TODO: send email containing resetUrl
+    // Send email containing resetUrl
     console.log('Password reset link:', resetUrl);
+
+    try {
+      console.log('Preparing to send reset email to:', email);
+      console.log('EMAIL_USER present:', !!process.env.EMAIL_USER);
+
+      const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 587,
+        secure: process.env.EMAIL_SECURE === 'true',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: email,
+        subject: 'Password Reset - CareerMatch AI',
+        text: `You requested a password reset. Use the link: ${resetUrl}`,
+        html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
+      };
+
+      console.log('Sending email...');
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Reset email sent:', info && (info.messageId || info.response));
+    } catch (emailErr) {
+      console.error('Error sending reset email:', emailErr);
+    }
 
     res.json({ success: true, message: 'Email sent if account exists' });
   } catch (error) {
