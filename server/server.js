@@ -24,7 +24,8 @@ app.use(helmet());
 app.use(cors({
   origin: [
     'http://localhost:5173',      // Development frontend
-    'https://careermatch-ai-1.onrender.com'  // Production frontend
+    'https://careermatch-ai-1.onrender.com', // Production frontend (primary)
+    'https://careermatch-ai.onrender.com'   // backend URL as some calls may originate here
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
