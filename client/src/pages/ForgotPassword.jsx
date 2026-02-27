@@ -18,10 +18,12 @@ const ForgotPassword = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email });
-      toast.success('If that email exists, a reset link has been sent');
+      const response = await api.post('/auth/forgot-password', { email });
+      const msg = response.data?.message || 'If that email exists, a reset link has been sent';
+      toast.success(msg);
     } catch (err) {
-      toast.error('Error sending reset link');
+      const msg = err.response?.data?.message || 'Error sending reset link';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

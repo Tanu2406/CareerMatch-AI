@@ -136,29 +136,44 @@ export const forgotPassword = async (req, res) => {
     }
 
     const user = await User.findOne({ email });
-    if (!user) {
-      // respond with success to avoid user enumeration
-      return res.json({ success: true, message: 'Email sent if account exists' });
+
+    // generate token and attempt send regardless of user existence; we always return 200
+    let resetToken;
+    if (user) {
+      resetToken = user.getResetPasswordToken();
+      await user.save({ validateBeforeSave: false });
     }
 
-    const resetToken = user.getResetPasswordToken();
-    await user.save({ validateBeforeSave: false });
-
     const resetUrl = `${process.env.CLIENT_URL || ''}/reset-password?token=${resetToken}`;
-    // Send email containing resetUrl
     console.log('Password reset link:', resetUrl);
 
+    // prepare transporter options
+    const transportOpts = {};
+    if (process.env.EMAIL_SERVICE) {
+      transportOpts.service = process.env.EMAIL_SERVICE;
+    } else {
+      transportOpts.host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+      transportOpts.port = process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 587;
+      transportOpts.secure = process.env.EMAIL_SECURE === 'true';
+    }
+    transportOpts.auth = {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    };
+
+    let mailError = null;
     try {
       console.log('Preparing to send reset email to:', email);
-      console.log('EMAIL_USER present:', !!process.env.EMAIL_USER);
+      console.log('Transport options:', transportOpts);
 
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 587,
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
+      const transporter = nodemailer.createTransport(transportOpts);
+
+      // verify connection configuration
+      transporter.verify((err, success) => {
+        if (err) {
+          console.error('Transporter verification failed:', err);
+        } else {
+          console.log('Transporter verified successfully');
         }
       });
 
@@ -174,13 +189,19 @@ export const forgotPassword = async (req, res) => {
       const info = await transporter.sendMail(mailOptions);
       console.log('Reset email sent:', info && (info.messageId || info.response));
     } catch (emailErr) {
+      mailError = emailErr;
       console.error('Error sending reset email:', emailErr);
     }
 
-    res.json({ success: true, message: 'Email sent if account exists' });
+    if (mailError) {
+      return res.status(500).json({ message: 'Email failed to send', error: mailError.message });
+    }
+
+    // success response (even if user was not found we pretend to send)
+    return res.status(200).json({ message: 'Reset link sent' });
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ success: false, message: 'Error processing request' });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
