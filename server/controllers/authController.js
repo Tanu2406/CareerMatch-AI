@@ -137,60 +137,68 @@ export const forgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    // generate token and attempt send regardless of user existence; we always return 200
     let resetToken;
+    let resetUrl;
     if (user) {
+      // only generate token and send email if account exists
       resetToken = user.getResetPasswordToken();
       await user.save({ validateBeforeSave: false });
-    }
 
-    const resetUrl = `${process.env.CLIENT_URL || ''}/reset-password?token=${resetToken}`;
-    console.log('Password reset link:', resetUrl);
+      resetUrl = `${process.env.CLIENT_URL || ''}/reset-password?token=${resetToken}`;
+      console.log('Password reset link for user:', resetUrl);
 
-    // prepare transporter options
-    const transportOpts = {};
-    if (process.env.EMAIL_SERVICE) {
-      transportOpts.service = process.env.EMAIL_SERVICE;
-    } else {
-      transportOpts.host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-      transportOpts.port = process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 587;
-      transportOpts.secure = process.env.EMAIL_SECURE === 'true';
-    }
-    transportOpts.auth = {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    };
-
-    let mailError = null;
-    try {
-      console.log('Preparing to send reset email to:', email);
-      console.log('Transport options:', transportOpts);
-
-      const transporter = nodemailer.createTransport(transportOpts);
-
-      // verify connection configuration
-      transporter.verify((err, success) => {
-        if (err) {
-          console.error('Transporter verification failed:', err);
-        } else {
-          console.log('Transporter verified successfully');
-        }
-      });
-
-      const mailOptions = {
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-        to: email,
-        subject: 'Password Reset - CareerMatch AI',
-        text: `You requested a password reset. Use the link: ${resetUrl}`,
-        html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
+      // prepare transporter options
+      const transportOpts = {};
+      if (process.env.EMAIL_SERVICE) {
+        transportOpts.service = process.env.EMAIL_SERVICE;
+      } else {
+        transportOpts.host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+        transportOpts.port = process.env.EMAIL_PORT ? parseInt(process.env.EMAIL_PORT) : 587;
+        transportOpts.secure = process.env.EMAIL_SECURE === 'true';
+      }
+      transportOpts.auth = {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
       };
 
-      console.log('Sending email...');
-      const info = await transporter.sendMail(mailOptions);
-      console.log('Reset email sent:', info && (info.messageId || info.response));
-    } catch (emailErr) {
-      mailError = emailErr;
-      console.error('Error sending reset email:', emailErr);
+      let mailError = null;
+      try {
+        console.log('Preparing to send reset email to:', user.email);
+        console.log('Transport options:', transportOpts);
+
+        const transporter = nodemailer.createTransport(transportOpts);
+
+        // verify connection configuration
+        transporter.verify((err, success) => {
+          if (err) {
+            console.error('Transporter verification failed:', err);
+          } else {
+            console.log('Transporter verified successfully');
+          }
+        });
+
+        const mailOptions = {
+          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+          to: user.email,
+          subject: 'Password Reset - CareerMatch AI',
+          text: `You requested a password reset. Use the link: ${resetUrl}`,
+          html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
+        };
+
+        console.log('Sending email...');
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Reset email sent:', info && (info.messageId || info.response));
+      } catch (emailErr) {
+        mailError = emailErr;
+        console.error('Error sending reset email:', emailErr);
+      }
+
+      if (mailError) {
+        return res.status(500).json({ message: 'Email failed to send', error: mailError.message });
+      }
+    } else {
+      // user not found, log for debugging but do not reveal to client
+      console.log('Forgot password requested for non-existent email:', email);
     }
 
     if (mailError) {
