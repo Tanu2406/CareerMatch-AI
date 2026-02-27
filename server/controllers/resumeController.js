@@ -271,9 +271,10 @@ export const getLatestAnalysis = async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (!analysis) {
-      return res.status(404).json({
-        success: false,
-        message: 'No analysis found'
+      // return empty result instead of 404 so frontend can handle gracefully
+      return res.json({
+        success: true,
+        data: null
       });
     }
 

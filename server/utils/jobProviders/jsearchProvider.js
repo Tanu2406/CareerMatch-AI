@@ -38,6 +38,12 @@ class JSearchProvider extends BaseJobProvider {
         const countryMap = { IN: 'India', US: 'United States', GB: 'United Kingdom', CA: 'Canada' };
         const c = (country || '').toUpperCase();
         locationPart = countryMap[c] || country || '';
+      } else {
+        // when no location or country provided, avoid implicit US results by defaulting
+        // to India. The JSearch API often returns US-based jobs if query lacks context.
+        // This gives a better experience for non-US users while still allowing global
+        // searches when a country is explicitly provided.
+        locationPart = 'India';
       }
 
       const query = locationPart ? `${keywords} in ${locationPart}` : keywords;
