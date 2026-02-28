@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -23,11 +22,16 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
   },
-  resetPasswordToken: {
+  otp: {
     type: String,
     select: false
   },
-  resetPasswordExpire: Date,
+  otpExpire: Date,
+  otpVerified: {
+    type: Boolean,
+    default: false,
+    select: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -49,19 +53,6 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Generate and hash password reset token
-userSchema.methods.getResetPasswordToken = function() {
-  // raw token to send to user
-  const resetToken = crypto.randomBytes(20).toString('hex');
-  // hash before saving to database
-  this.resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
-  // set expiration (10 minutes)
-  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-  return resetToken;
-};
 
 const User = mongoose.model('User', userSchema);
 

@@ -125,7 +125,41 @@ export const login = async (req, res) => {
   }
 };
 
-// @desc    Send forgot password token
+// @desc    Verify OTP that was generated previously
+// @route   POST /api/auth/verify-otp
+// @access  Public
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP required' });
+    }
+
+    const user = await User.findOne({ email }).select('+otp +otpExpire +otpVerified');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (!user.otp || user.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    if (!user.otpExpire || user.otpExpire < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    user.otpVerified = true;
+    // keep otp/expire until password has been reset; clearing happens on success
+    await user.save({ validateBeforeSave: false });
+
+    return res.json({ success: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
+// @desc    Generate OTP for password reset
 // @route   POST /api/auth/forgot-password
 // @access  Public
 export const forgotPassword = async (req, res) => {
@@ -136,18 +170,21 @@ export const forgotPassword = async (req, res) => {
     }
 
     const user = await User.findOne({ email });
+    if (!user) {
+      // not revealing existence
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
-    let resetToken;
-    let resetUrl;
-    if (user) {
-      // only generate token and send email if account exists
-      resetToken = user.getResetPasswordToken();
-      await user.save({ validateBeforeSave: false });
+    // generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.otpVerified = false;
 
-      resetUrl = `${process.env.CLIENT_URL || ''}/reset-password?token=${resetToken}`;
-      console.log('Password reset link for user:', resetUrl);
+    await user.save({ validateBeforeSave: false });
 
-      // prepare transporter options
+    // send OTP via email
+    try {
       const transportOpts = {};
       if (process.env.EMAIL_SERVICE) {
         transportOpts.service = process.env.EMAIL_SERVICE;
@@ -161,89 +198,59 @@ export const forgotPassword = async (req, res) => {
         pass: process.env.EMAIL_PASS
       };
 
-      let mailError = null;
-      try {
-        console.log('Preparing to send reset email to:', user.email);
-        console.log('Transport options:', transportOpts);
-
-        const transporter = nodemailer.createTransport(transportOpts);
-
-        // verify connection configuration
-        transporter.verify((err, success) => {
-          if (err) {
-            console.error('Transporter verification failed:', err);
-          } else {
-            console.log('Transporter verified successfully');
-          }
-        });
-
-        const mailOptions = {
-          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-          to: user.email,
-          subject: 'Password Reset - CareerMatch AI',
-          text: `You requested a password reset. Use the link: ${resetUrl}`,
-          html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
-        };
-
-        console.log('Sending email...');
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Reset email sent:', info && (info.messageId || info.response));
-      } catch (emailErr) {
-        mailError = emailErr;
-        console.error('Error sending reset email:', emailErr);
-      }
-
-      if (mailError) {
-        return res.status(500).json({ message: 'Email failed to send', error: mailError.message });
-      }
-    } else {
-      // user not found, log for debugging but do not reveal to client
-      console.log('Forgot password requested for non-existent email:', email);
+      const transporter = nodemailer.createTransport(transportOpts);
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: user.email,
+        subject: 'Your CareerMatch AI Password Reset OTP',
+        text: `Your password reset code is: ${otp} (expires in 10 minutes)`
+      });
+    } catch (mailErr) {
+      console.error('Error sending OTP email:', mailErr);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP' });
     }
 
-    if (mailError) {
-      return res.status(500).json({ message: 'Email failed to send', error: mailError.message });
-    }
-
-    // success response (even if user was not found we pretend to send)
-    return res.status(200).json({ message: 'Reset link sent' });
+    return res.status(200).json({ success: true, message: 'OTP sent to your email' });
   } catch (error) {
     console.error('Forgot password error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   }
 };
 
-// @desc    Reset user password
+// @desc    Reset user password after OTP verification
 // @route   POST /api/auth/reset-password
 // @access  Public
 export const resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
-    if (!token || !password) {
-      return res.status(400).json({ success: false, message: 'Token and new password required' });
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email, OTP and new password required' });
     }
 
-    const crypto = require('crypto');
-    const hashed = crypto.createHash('sha256').update(token).digest('hex');
-
-    const user = await User.findOne({
-      resetPasswordToken: hashed,
-      resetPasswordExpire: { $gt: Date.now() }
-    }).select('+password');
-
+    const user = await User.findOne({ email }).select('+password +otp +otpExpire +otpVerified');
     if (!user) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired token' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    user.password = password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    if (!user.otpVerified) {
+      return res.status(400).json({ success: false, message: 'OTP has not been verified' });
+    }
+
+    if (user.otp !== otp || !user.otpExpire || user.otpExpire < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    user.password = newPassword;
+    user.otp = undefined;
+    user.otpExpire = undefined;
+    user.otpVerified = false;
+
     await user.save();
 
-    res.json({ success: true, message: 'Password has been reset' });
+    return res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ success: false, message: 'Error resetting password' });
+    res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
   }
 };
 

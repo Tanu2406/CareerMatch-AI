@@ -10,16 +10,21 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState('');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
 
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const t = params.get('token') || '';
-    setToken(t);
-  }, [location.search]);
+    const storedEmail = localStorage.getItem('resetEmail');
+    const storedOtp = localStorage.getItem('resetOtp');
+    if (!storedEmail || !storedOtp) {
+      navigate('/forgot-password');
+    } else {
+      setEmail(storedEmail);
+      setOtp(storedOtp);
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,8 +39,11 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/reset-password', { token, password });
+      await api.post('/auth/reset-password', { email, otp, newPassword: password });
       toast.success('Password reset successful. Please login.');
+      // clear stored values after success
+      localStorage.removeItem('resetEmail');
+      localStorage.removeItem('resetOtp');
       navigate('/login');
     } catch (err) {
       const msg = err.response?.data?.message || 'Error resetting password';

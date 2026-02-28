@@ -139,8 +139,9 @@ CareerMatch AI/
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register new user (409 if email already registered) |
 | POST | `/api/auth/login` | Login user |
-| POST | `/api/auth/forgot-password` | Request password reset (email if account exists) |
-| POST | `/api/auth/reset-password` | Reset password using token |
+| POST | `/api/auth/forgot-password` | Generate a 6‑digit OTP, email it to user, and (in dev) return success message |
+| POST | `/api/auth/verify-otp` | Verify previously issued OTP |
+| POST | `/api/auth/reset-password` | Reset password after OTP verification (requires email, otp, newPassword) |
 | GET | `/api/auth/me` | Get current user |
 
 ### Resume
@@ -171,6 +172,13 @@ CareerMatch AI/
 | `JOB_PROVIDER` | Job provider: jsearch or mock |
 | `RAPIDAPI_KEY` | RapidAPI key for JSearch |
 | `NODE_ENV` | Environment (development/production) |
+| `EMAIL_SERVICE` | Optional nodemailer service name (e.g. 'Gmail') |
+| `EMAIL_HOST` | SMTP host (if not using service) |
+| `EMAIL_PORT` | SMTP port |
+| `EMAIL_SECURE` | 'true' for TLS, 'false' for STARTTLS |
+| `EMAIL_USER` | SMTP username/email for sending OTPs |
+| `EMAIL_PASS` | SMTP password |
+| `EMAIL_FROM` | (optional) From address for OTP emails |
 
 ### Client
 | Variable | Description |
