@@ -125,52 +125,8 @@ export const login = async (req, res) => {
 };
 
 
-// @desc    Forgot password (simplified)
-// @route   POST /api/auth/forgot-password
-// @access  Public
-export const forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Please provide email' });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    return res.json({ success: true, message: 'User found. Proceed to set new password.' });
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
-  }
-};
-
-// @desc    Reset password
-// @route   POST /api/auth/reset-password
-// @access  Public
-export const resetPassword = async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Email and new password required' });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    user.password = newPassword;
-    await user.save();
-
-    return res.json({ success: true, message: 'Password updated successfully' });
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({ success: false, message: 'Error resetting password' });
-  }
-};
+// Forgot/reset password endpoints removed from this controller.
+// Password update should be handled via authenticated user profile/change-password flow.
 
 // @desc    Get current user
 // @route   GET /api/auth/me
