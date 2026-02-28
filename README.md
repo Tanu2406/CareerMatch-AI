@@ -79,7 +79,8 @@ An AI-powered Resume & Job Matcher SaaS application built with the MERN stack. U
 
    Create `client/.env`:
    ```env
-   VITE_API_URL=/api
+   # Local development (frontend -> backend)
+   VITE_API_URL=http://localhost:5000
    ```
 
 5. **Start MongoDB**
@@ -102,6 +103,29 @@ An AI-powered Resume & Job Matcher SaaS application built with the MERN stack. U
 7. **Open the application**
    
    Navigate to `http://localhost:5173`
+
+## Production build & deployment (served by Express)
+
+1. Build the frontend (from project root):
+```bash
+cd client
+npm run build
+```
+
+2. Ensure `server/.env` has `NODE_ENV=production` and `VITE_API_URL` set in the client build environment if needed.
+
+3. In production ensure the server serves the built assets. The Express server is configured to serve the `client/dist` folder when `NODE_ENV=production`.
+
+4. Start the server (from `server`):
+```bash
+NODE_ENV=production npm start
+```
+
+5. On Render (or similar), set the environment variable `VITE_API_URL` for the client build to your backend URL (e.g. `https://your-backend.onrender.com`) so the built frontend uses the correct API host.
+
+Notes:
+- The server will serve the frontend build and will fallback to `index.html` for unknown non-API routes so React Router paths (e.g. `/reset-password`) work in production without a "Not Found".
+- Ensure the backend URL does not include a trailing `/api` when setting `VITE_API_URL`; the app will append `/api` automatically.
 
 ## Project Structure
 

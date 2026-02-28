@@ -59,6 +59,20 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'CareerMatch AI Server is running' });
 });
 
+// Serve frontend in production (Vite build output is in client/dist)
+if (process.env.NODE_ENV === 'production') {
+  const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+  app.use(express.static(clientDistPath));
+
+  // Fallback to index.html for client-side routing, but keep API routes functional
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ success: false, message: 'API route not found' });
+    }
+    return res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 // Global error handler
 app.use((err, req, res, next) => {
   const status = err.status || err.statusCode || 500;
