@@ -61,7 +61,7 @@ api.interceptors.response.use(
     }
     
     // Don't show toast for login/register page errors - handled by components
-    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/forgot-password') || url.includes('/auth/reset-password');
+    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register');
     const isHandledError = code === 'USER_NOT_FOUND' || code === 'INVALID_PASSWORD';
     
     if (!isAuthRoute && status !== 401 && !isHandledError) {
