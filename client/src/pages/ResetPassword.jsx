@@ -11,18 +11,15 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
 
   const navigate = useNavigate();
 
   useEffect(() => {
     const storedEmail = localStorage.getItem('resetEmail');
-    const storedOtp = localStorage.getItem('resetOtp');
-    if (!storedEmail || !storedOtp) {
+    if (!storedEmail) {
       navigate('/forgot-password');
     } else {
       setEmail(storedEmail);
-      setOtp(storedOtp);
     }
   }, [navigate]);
 
@@ -39,14 +36,12 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/reset-password', { email, otp, newPassword: password });
-      toast.success('Password reset successful. Please login.');
-      // clear stored values after success
+      await api.post('/auth/reset-password', { email, newPassword: password });
+      toast.success('Password updated successfully. Please login.');
       localStorage.removeItem('resetEmail');
-      localStorage.removeItem('resetOtp');
       navigate('/login');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error resetting password';
+      const msg = err.response?.data?.message || 'Error updating password';
       toast.error(msg);
     } finally {
       setLoading(false);

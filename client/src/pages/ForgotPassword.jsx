@@ -19,14 +19,12 @@ const ForgotPassword = () => {
     setLoading(true);
     try {
       const response = await api.post('/auth/forgot-password', { email });
-      const msg = response.data?.message || 'OTP sent';
+      const msg = response.data?.message || 'Please set a new password';
       toast.success(msg);
-      // store email for next steps
       localStorage.setItem('resetEmail', email);
-      // navigate to otp verify page
-      window.location.href = '/verify-otp';
+      window.location.href = '/reset-password';
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error sending OTP';
+      const msg = err.response?.data?.message || 'Error';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -42,7 +40,7 @@ const ForgotPassword = () => {
       >
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold gradient-text">Forgot Password</h1>
-          <p className="text-text-secondary mt-2">Enter your email to receive a one‑time code.</p>
+          <p className="text-text-secondary mt-2">Enter your email to reset your password.</p>
         </div>
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -64,7 +62,7 @@ const ForgotPassword = () => {
               disabled={loading}
               className="btn-primary w-full flex items-center justify-center gap-2"
             >
-              {loading ? 'Sending...' : 'Send OTP'}
+              {loading ? 'Processing...' : 'Reset Password'}
             </button>
           </form>
           <p className="text-center mt-6 text-text-secondary">
